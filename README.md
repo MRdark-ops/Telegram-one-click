@@ -1,4 +1,5 @@
-#Introduction
+###Introduction###
+
 Someone adds you to a Telegram group. A link shows up in the chat. You click it, and your Telegram account is no longer only yours.
 
 #How?
