@@ -8,27 +8,35 @@ Telegram Desktop hands clicked links to its own already-running instance over a 
 
 The chain I found has two defects. The first is that injection. The second is what the injected command reaches: an internal URI scheme, interpret:, that reads a file named in an instruction file and sends it to a chat, without checking who asked for it and without a confirmation. Together they turn a clicked link into arbitrary file read. In this post I walk through the chain and then use it to steal the files that are the victim’s login.
 
+
 #Affected	Telegram Desktop through 7.2.8, confirmed on Windows (6.9.3)
 Impact	Remote arbitrary local file read, exfiltrated to an attacker-controlled chat; account takeover
 CVE	CVE-2026-107181
 Fixed in	7.2.9, commit db3405699f
 Severity	8.1 High, CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N
 One link, two processes
+
+
 Operating systems let programs register a URI scheme, so they know which application to launch when they meet a link of that kind. Telegram Desktop registers tg. From then on the system knows a tg://... link belongs to Telegram, and launches it with the URL as a command-line argument.
 
 If Telegram is not running, the process starts, takes the string as a parameter, turns it into a URL object and handles it internally: one process, and nothing to communicate.
 
-But what if Telegram is already running? The operating system neither knows nor checks: it launches a new process anyway, identical to the first. Telegram itself has to work out that it is the redundant one, and the way it works that out is by trying to connect to a local socket.
+But what if Telegram is already running? The operating system neither knows nor checks: it launches a new process anyway, identical to the first. Telegram itself has to work out that it is the redundant one, and the way 
+
+it works that out is by trying to connect to a local socket.
 
 The already-running instance is the server: it has been listening on that socket since it started. The new process is the client. If it manages to connect, an instance is already alive, so it hands over the link and exits.
 
 A socket does not carry objects, it carries bytes. The URL object the new process holds in memory cannot cross that channel, so it has to be flattened into a line of text.
 
-That operation has a name: serialization. Its inverse, rebuilding the object from the text, is deserialization. Both are unavoidable whenever structured data has to cross a boundary, and both are the exact point where the boundaries inside the data stop being held by the structure and become characters in the text.
+That operation has a name: serialization. Its inverse, rebuilding the object from the text, is deserialization. Both are unavoidable whenever structured data has to cross a boundary, and both are the exact point where the 
+
+boundaries inside the data stop being held by the structure and become characters in the text.
 
 #Telegram does it with a format of its own, a simple one. Each instruction is a keyword, then its argument, then a semicolon that closes it. A link to open becomes:
 
 OPEN:tg://x?a=1;
+
 tg://x?a=1 matches no handler inside Telegram, so on its own that link does nothing. It is only a carrier.
 
 #That line is built here, one per URL to open:
